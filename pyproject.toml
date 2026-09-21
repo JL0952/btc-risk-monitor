@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "btc-risk-monitor"
+version = "0.1.0"
+description = "Causal BTCUSDT market-risk monitoring with frozen daily anomaly models"
+requires-python = ">=3.11"
+dependencies = [
+    "psycopg[binary]==3.3.3",
+    "python-dotenv==1.2.1",
+    "websockets==16.0",
+    "numpy==2.3.4",
+    "pandas==2.3.3",
+    "scikit-learn==1.7.2",
+    "joblib==1.5.2",
+    "matplotlib==3.10.7",
+    "fastapi==0.128.0",
+    "uvicorn==0.40.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest==9.0.2"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = ["persistence: stops and recreates the project's database container"]

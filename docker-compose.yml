@@ -1,0 +1,88 @@
+name: btc-risk
+
+services:
+  database:
+    image: postgres:17.9-bookworm
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      TZ: UTC
+      PGTZ: UTC
+    command: ["postgres", "-c", "timezone=UTC", "-c", "log_timezone=UTC"]
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  collector:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    env_file: .env
+    environment:
+      POSTGRES_HOST: database
+      POSTGRES_PORT: 5432
+      TZ: UTC
+      MODELS_DIR: /app/models
+    depends_on:
+      database:
+        condition: service_healthy
+    init: true
+    volumes:
+      - model_data:/app/models
+    restart: unless-stopped
+    stop_grace_period: 45s
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    env_file: .env
+    environment:
+      POSTGRES_HOST: database
+      POSTGRES_PORT: 5432
+      TZ: UTC
+      MODELS_DIR: /app/models
+    command: ["python", "-m", "btc_risk.operations.scheduler"]
+    depends_on:
+      database:
+        condition: service_healthy
+    init: true
+    volumes:
+      - model_data:/app/models
+    restart: unless-stopped
+    stop_grace_period: 45s
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    env_file: .env
+    environment:
+      POSTGRES_HOST: database
+      POSTGRES_PORT: 5432
+      TZ: UTC
+    command: ["uvicorn", "btc_risk.operations.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 20s
+
+volumes:
+  db_data:
+    name: btc-risk_db_data
+  model_data:
+    name: btc-risk_model_data
